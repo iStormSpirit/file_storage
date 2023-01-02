@@ -1,0 +1,20 @@
+version: '3.10'
+
+services:
+
+  postgres-fastapi:
+    image: postgres:alpine
+    expose:
+      - 5432
+    env_file:
+      - ./.env
+
+  web:
+    build: .
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8080
+    ports:
+      - 8080:8080
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres-fastapi
