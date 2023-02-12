@@ -1,10 +1,11 @@
+import pickle
 from logging import config, getLogger
 
 from fastapi import APIRouter, Depends, File, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.logger import LOGGING
-from db.db import get_session
+from db.db import get_session, redis
 from schemas import file as file_schema
 from schemas import user as user_schema
 from services.auth import get_current_user
@@ -29,10 +30,12 @@ async def search_files(*, db: AsyncSession = Depends(get_session),
 @router.get('/files/list', tags=['file'])
 async def get_files_list(db: AsyncSession = Depends(get_session),
                          current_user: user_schema.User = Depends(get_current_user)):
-    user = current_user
-    files = await file_crud.get(db=db, user=user)
-    logger.info(f'user: {user.id} requested self list of files ')
-    data = {'account_id': current_user.id, 'files': files}
+    cache = await redis.get(str(current_user.id))
+    if cache is None:
+        files = await file_crud.get(db=db, user=current_user)
+        await redis.set(str(current_user.id), pickle.dumps(files), ex=60)
+    cache = pickle.loads(await redis.get(str(current_user.id)))
+    data = {'account_id': current_user.id, 'files': cache}
     return data
 
 
@@ -42,13 +45,12 @@ async def download_file(*, db: AsyncSession = Depends(get_session),
                         identifier: str | int = None,
                         download_folder: bool = False,
                         ) -> File:
-    user = current_user
     if download_folder:
-        file = await file_crud.download_folder(user=user, path=identifier)
-        logger.info(f'user: {user.id} download folders by path: {identifier} ')
+        file = await file_crud.download_folder(user=current_user, path=identifier)
+        logger.info(f'user: {current_user.id} download folders by path: {identifier} ')
     else:
-        file = await file_crud.download_file(db=db, user=user, identifier=identifier)
-        logger.info(f'user: {user.id} download file by path: {identifier} ')
+        file = await file_crud.download_file(db=db, user=current_user, identifier=identifier)
+        logger.info(f'user: {current_user.id} download file by path: {identifier} ')
     return file
 
 
@@ -57,7 +59,6 @@ async def upload_file(*, file: UploadFile = File(...),
                       path: str = None, file_name: str = None,
                       current_user: user_schema.User = Depends(get_current_user),
                       db: AsyncSession = Depends(get_session)) -> File:
-    user = current_user
-    file_upload = await file_crud.create(db=db, user=user, path=path, name=file_name, file=file)
-    logger.info(f'user: {user.id} upload file: {file_name} - path: {path} ')
+    file_upload = await file_crud.create(db=db, user=current_user, path=path, name=file_name, file=file)
+    logger.info(f'user: {current_user.id} upload file: {file_name} - path: {path} ')
     return file_upload

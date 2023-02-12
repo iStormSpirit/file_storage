@@ -15,6 +15,7 @@ class AppSettings(BaseSettings):
     secret_key: str
     token_expire_minutes: int
     algorithm: str
+    redis_url: str
 
     class Config:
         env_file = '.env'
