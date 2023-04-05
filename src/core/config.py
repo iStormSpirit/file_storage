@@ -16,6 +16,8 @@ class AppSettings(BaseSettings):
     token_expire_minutes: int
     algorithm: str
     redis_url: str
+    redis_host: str = 'cache'
+    redis_port: int = 6379
 
     class Config:
         env_file = '.env'

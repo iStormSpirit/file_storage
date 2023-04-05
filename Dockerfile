@@ -1,7 +1,11 @@
-FROM python:3.9.7-slim
+FROM python:3.10
 
-COPY . /code
+WORKDIR /app
 
-WORKDIR /code
+COPY ./requirements.txt .
 
-RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+COPY ./.env .
+
+RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
+
+COPY ./src .
